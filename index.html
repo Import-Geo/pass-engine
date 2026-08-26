@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="PassEngine">
+    <title>Password Engine Standalone</title>
+    <!-- Evaluador de seguridad zxcvbn para el navegador -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/zxcvbn/4.4.2/zxcvbn.js"></script>
+    <!-- Carga del diccionario completo generado por Python -->
+    <script src="palabras.js"></script>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #f1f5f9;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            color: #38bdf8;
+            margin-bottom: 5px;
+            font-size: 1.5em;
+        }
+        p.subtitle {
+            color: #94a3b8;
+            font-size: 0.85em;
+            margin-top: 0;
+            margin-bottom: 20px;
+        }
+        .pass-container {
+            background-color: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 420px;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+        .password {
+            background-color: #0f172a;
+            color: #a6e3a1;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            font-family: ui-monospace, SFMono-Regular, "Courier New", monospace;
+            font-size: 1em;
+            text-align: center;
+            border: 1px solid #334155;
+            word-break: break-all;
+        }
+        .btn {
+            background-color: #2563eb;
+            color: white;
+            border: none;
+            padding: 15px;
+            font-size: 1em;
+            font-weight: bold;
+            border-radius: 10px;
+            cursor: pointer;
+            width: 100%;
+            max-width: 420px;
+            margin-top: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .btn:active {
+            background-color: #1d4ed8;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Password Engine Standalone</h1>
+    <p class="subtitle">Patrón Apple 6-6-6 • Ejecución Local</p>
+
+    <div class="pass-container" id="contenedor-passwords">
+        <div class="password">Generando contraseñas...</div>
+    </div>
+
+    <button class="btn" onclick="mostrarBloque()">⚡ Generar Nuevas</button>
+
+    <script>
+        // Respaldos automáticos en caso de que no cargue el archivo palabras.js
+        const LISTA_5 = (typeof PALABRAS_5 !== "undefined" && PALABRAS_5.length >= 3) 
+            ? PALABRAS_5 
+            : ["noche", "mundo", "fuego", "cable", "disco", "llave", "pluma", "punto"];
+
+        const LISTA_6 = (typeof PALABRAS_6 !== "undefined" && PALABRAS_6.length >= 3) 
+            ? PALABRAS_6 
+            : ["espejo", "puente", "trueno", "camino", "origen", "filtro", "vector", "bloque"];
+
+        // Generador de entropía criptográfica del navegador
+        function getRandomInt(max) {
+            const array = new Uint32Array(1);
+            window.crypto.getRandomValues(array);
+            return array[0] % max;
+        }
+
+        function generarContrasena666() {
+            const digitos = "0123456789";
+            const numero = digitos[getRandomInt(digitos.length)];
+            const posicion = getRandomInt(2) === 0 ? "inicio" : "final";
+            const bloqueNum = getRandomInt(3) + 1;
+
+            const p5 = LISTA_5[getRandomInt(LISTA_5.length)];
+            
+            // Selección de dos palabras de 6 letras distintas
+            let idx1 = getRandomInt(LISTA_6.length);
+            let idx2 = getRandomInt(LISTA_6.length);
+            while (idx1 === idx2) {
+                idx2 = getRandomInt(LISTA_6.length);
+            }
+            const p6_1 = LISTA_6[idx1];
+            const p6_2 = LISTA_6[idx2];
+
+            const pConNum = (posicion === "inicio") ? `${numero}${p5}` : `${p5}${numero}`;
+
+            let bloques = [];
+            if (bloqueNum === 1) bloques = [pConNum, p6_1, p6_2];
+            else if (bloqueNum === 2) bloques = [p6_1, pConNum, p6_2];
+            else bloques = [p6_1, p6_2, pConNum];
+
+            let cadena = bloques.join("-");
+
+            // Mayúscula flotante sobre una letra válida
+            const indicesLetras = [];
+            for (let i = 0; i < cadena.length; i++) {
+                if (/[a-zA-Z]/.test(cadena[i])) indicesLetras.push(i);
+            }
+
+            if (indicesLetras.length > 0) {
+                const targetIdx = indicesLetras[getRandomInt(indicesLetras.length)];
+                const chars = cadena.split("");
+                chars[targetIdx] = chars[targetIdx].toUpperCase();
+                cadena = chars.join("");
+            }
+
+            return cadena;
+        }
+
+        function mostrarBloque() {
+            const contenedor = document.getElementById("contenedor-passwords");
+            contenedor.innerHTML = "";
+            let generadas = 0;
+            let intentos = 0;
+
+            // Filtro con el evaluador zxcvbn (Puntuación máxima 4)
+            while (generadas < 10 && intentos < 200) {
+                intentos++;
+                const candidata = generarContrasena666();
+                const score = (typeof zxcvbn === "function") ? zxcvbn(candidata).score : 4;
+
+                if (score === 4) {
+                    const div = document.createElement("div");
+                    div.className = "password";
+                    div.textContent = candidata;
+                    contenedor.appendChild(div);
+                    generadas++;
+                }
+            }
+        }
+
+        // Ejecutar al cargar la página
+        window.onload = mostrarBloque;
+    </script>
+</body>
+</html>

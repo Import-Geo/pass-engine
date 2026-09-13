@@ -119,11 +119,9 @@
         function generarContrasena666() {
             const digitos = "0123456789";
             const numero = digitos[getRandomInt(digitos.length)];
-            const posicion = getRandomInt(2) === 0 ? "inicio" : "final";
-            const bloqueNum = getRandomInt(3) + 1;
 
+            // Seleccionar palabras distintas
             const p5 = LISTA_5[getRandomInt(LISTA_5.length)];
-            
             let idx1 = getRandomInt(LISTA_6.length);
             let idx2 = getRandomInt(LISTA_6.length);
             while (idx1 === idx2) {
@@ -131,6 +129,20 @@
             }
             const p6_1 = LISTA_6[idx1];
             const p6_2 = LISTA_6[idx2];
+
+            // Elegir en cuál de los 3 bloques irá el número
+            const bloqueNum = getRandomInt(3) + 1;
+
+            // REGLA APPLE: Si va en bloque 1, al final de la palabra (evita empezar la clave con número).
+            // Si va en bloque 3, al inicio de la palabra (evita terminar la clave con número).
+            let posicion;
+            if (bloqueNum === 1) {
+                posicion = "final";
+            } else if (bloqueNum === 3) {
+                posicion = "inicio";
+            } else {
+                posicion = getRandomInt(2) === 0 ? "inicio" : "final";
+            }
 
             const pConNum = (posicion === "inicio") ? `${numero}${p5}` : `${p5}${numero}`;
 
@@ -141,15 +153,22 @@
 
             let cadena = bloques.join("-");
 
-            const indicesLetras = [];
-            for (let i = 0; i < cadena.length; i++) {
-                if (/[a-zA-Z]/.test(cadena[i])) indicesLetras.push(i);
+            // Capitalizar 1 o 2 letras interiores evitando los extremos absolutos
+            const chars = cadena.split("");
+            const indicesValidos = [];
+
+            for (let i = 1; i < chars.length - 1; i++) {
+                if (/[a-zA-Z]/.test(chars[i])) {
+                    indicesValidos.push(i);
+                }
             }
 
-            if (indicesLetras.length > 0) {
-                const targetIdx = indicesLetras[getRandomInt(indicesLetras.length)];
-                const chars = cadena.split("");
-                chars[targetIdx] = chars[targetIdx].toUpperCase();
+            if (indicesValidos.length > 0) {
+                const cantMayus = (getRandomInt(2) === 0) ? 1 : 2;
+                for (let k = 0; k < cantMayus; k++) {
+                    const pick = indicesValidos[getRandomInt(indicesValidos.length)];
+                    chars[pick] = chars[pick].toUpperCase();
+                }
                 cadena = chars.join("");
             }
 
@@ -162,7 +181,6 @@
                 if (navigator.clipboard && window.isSecureContext) {
                     await navigator.clipboard.writeText(texto);
                 } else {
-                    // Fallback para entornos donde clipboard API esté restringido
                     const area = document.createElement("textarea");
                     area.value = texto;
                     area.style.position = "fixed";
@@ -193,12 +211,16 @@
             let generadas = 0;
             let intentos = 0;
 
-            while (generadas < 10 && intentos < 200) {
+            while (generadas < 10 && intentos < 300) {
                 intentos++;
                 const candidata = generarContrasena666();
                 const score = (typeof zxcvbn === "function") ? zxcvbn(candidata).score : 4;
 
-                if (score === 4) {
+                const tieneMayus = /[A-Z]/.test(candidata);
+                const tieneNum = /[0-9]/.test(candidata);
+                const noEmpiezaNiTerminaNum = !/^[0-9]|.*[0-9]$/.test(candidata);
+
+                if (score === 4 && tieneMayus && tieneNum && noEmpiezaNiTerminaNum) {
                     const div = document.createElement("div");
                     div.className = "password";
                     div.textContent = candidata;

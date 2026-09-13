@@ -100,7 +100,6 @@
     <button class="btn" onclick="mostrarBloque()">⚡ Generar Nuevas</button>
 
     <script>
-        // Respaldos automáticos en caso de que no cargue el archivo palabras.js
         const LISTA_5 = (typeof PALABRAS_5 !== "undefined" && PALABRAS_5.length >= 3) 
             ? PALABRAS_5 
             : ["noche", "mundo", "fuego", "cable", "disco", "llave", "pluma", "punto"];
@@ -109,7 +108,6 @@
             ? PALABRAS_6 
             : ["espejo", "puente", "trueno", "camino", "origen", "filtro", "vector", "bloque"];
 
-        // Entropía criptográfica nativa del navegador
         function getRandomInt(max) {
             const array = new Uint32Array(1);
             window.crypto.getRandomValues(array);
@@ -117,10 +115,10 @@
         }
 
         function generarContrasena666() {
-            const digitos = "0123456789";
+            // Excluir 0 y 1 para evitar penalización por ambigüedad visual (O, l, I)
+            const digitos = "23456789";
             const numero = digitos[getRandomInt(digitos.length)];
 
-            // Seleccionar palabras distintas
             const p5 = LISTA_5[getRandomInt(LISTA_5.length)];
             let idx1 = getRandomInt(LISTA_6.length);
             let idx2 = getRandomInt(LISTA_6.length);
@@ -130,44 +128,35 @@
             const p6_1 = LISTA_6[idx1];
             const p6_2 = LISTA_6[idx2];
 
-            // 1. Ubicar el número en un bloque sin tocar los bordes exteriores absolutos
-            const bloqueNum = getRandomInt(3) + 1;
-            let posicion;
-            if (bloqueNum === 1) {
-                posicion = "final"; // Ej: "aojar6" (no empieza con número)
-            } else if (bloqueNum === 3) {
-                posicion = "inicio"; // Ej: "6dolar" (no termina con número)
-            } else {
-                posicion = getRandomInt(2) === 0 ? "inicio" : "final";
-            }
+            // Siempre número como sufijo en posición 6 del bloque (ej: "chote4", "goofy8")
+            const pConNum = `${p5}${numero}`;
 
-            const pConNum = (posicion === "inicio") ? `${numero}${p5}` : `${p5}${numero}`;
+            // Solo permitir el bloque con número en la posición 1 o 2 (el bloque 3 queda limpio)
+            const bloqueNum = getRandomInt(2) + 1; // Devuelve 1 o 2
 
             let bloques = [];
-            if (bloqueNum === 1) bloques = [pConNum, p6_1, p6_2];
-            else if (bloqueNum === 2) bloques = [p6_1, pConNum, p6_2];
-            else bloques = [p6_1, p6_2, pConNum];
+            if (bloqueNum === 1) {
+                bloques = [pConNum, p6_1, p6_2];
+            } else {
+                bloques = [p6_1, pConNum, p6_2];
+            }
 
-            // 2. Exactamente 1 mayúscula en toda la contraseña (estilo Apple nativo)
-            // Se elige uno de los bloques que NO contenga el dígito
+            // Capitalizar exactamente 1 letra en uno de los bloques que NO tiene el número
             const candidatosBloque = [];
             if (bloqueNum !== 1) candidatosBloque.push(0);
             if (bloqueNum !== 2) candidatosBloque.push(1);
-            if (bloqueNum !== 3) candidatosBloque.push(2);
+            candidatosBloque.push(2); // El bloque 3 nunca tiene número
 
             const bloqueACapitalizar = candidatosBloque[getRandomInt(candidatosBloque.length)];
             const palabra = bloques[bloqueACapitalizar];
             const letras = palabra.split("");
 
-            // Capitaliza la primera letra del bloque elegido (ej: "Cusuco")
-            let posLetra = /[a-zA-Z]/.test(letras[0]) ? 0 : 1;
-            letras[posLetra] = letras[posLetra].toUpperCase();
+            letras[0] = letras[0].toUpperCase();
             bloques[bloqueACapitalizar] = letras.join("");
 
             return bloques.join("-");
         }
 
-        // Función para copiar y dar feedback visual
         async function copiarPassword(elemento, texto) {
             try {
                 if (navigator.clipboard && window.isSecureContext) {
@@ -208,7 +197,6 @@
                 const candidata = generarContrasena666();
                 const score = (typeof zxcvbn === "function") ? zxcvbn(candidata).score : 4;
 
-                // Validación estricta: score 4, exactamente 1 número, exactamente 1 mayúscula
                 const totalMayus = (candidata.match(/[A-Z]/g) || []).length;
                 const totalNums = (candidata.match(/[0-9]/g) || []).length;
                 const noEmpiezaNiTerminaNum = !/^[0-9]|.*[0-9]$/.test(candidata);

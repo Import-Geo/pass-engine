@@ -130,16 +130,13 @@
             const p6_1 = LISTA_6[idx1];
             const p6_2 = LISTA_6[idx2];
 
-            // Elegir en cuál de los 3 bloques irá el número
+            // 1. Ubicar el número en un bloque sin tocar los bordes exteriores absolutos
             const bloqueNum = getRandomInt(3) + 1;
-
-            // REGLA APPLE: Si va en bloque 1, al final de la palabra (evita empezar la clave con número).
-            // Si va en bloque 3, al inicio de la palabra (evita terminar la clave con número).
             let posicion;
             if (bloqueNum === 1) {
-                posicion = "final";
+                posicion = "final"; // Ej: "aojar6" (no empieza con número)
             } else if (bloqueNum === 3) {
-                posicion = "inicio";
+                posicion = "inicio"; // Ej: "6dolar" (no termina con número)
             } else {
                 posicion = getRandomInt(2) === 0 ? "inicio" : "final";
             }
@@ -151,28 +148,23 @@
             else if (bloqueNum === 2) bloques = [p6_1, pConNum, p6_2];
             else bloques = [p6_1, p6_2, pConNum];
 
-            let cadena = bloques.join("-");
+            // 2. Exactamente 1 mayúscula en toda la contraseña (estilo Apple nativo)
+            // Se elige uno de los bloques que NO contenga el dígito
+            const candidatosBloque = [];
+            if (bloqueNum !== 1) candidatosBloque.push(0);
+            if (bloqueNum !== 2) candidatosBloque.push(1);
+            if (bloqueNum !== 3) candidatosBloque.push(2);
 
-            // Capitalizar 1 o 2 letras interiores evitando los extremos absolutos
-            const chars = cadena.split("");
-            const indicesValidos = [];
+            const bloqueACapitalizar = candidatosBloque[getRandomInt(candidatosBloque.length)];
+            const palabra = bloques[bloqueACapitalizar];
+            const letras = palabra.split("");
 
-            for (let i = 1; i < chars.length - 1; i++) {
-                if (/[a-zA-Z]/.test(chars[i])) {
-                    indicesValidos.push(i);
-                }
-            }
+            // Capitaliza la primera letra del bloque elegido (ej: "Cusuco")
+            let posLetra = /[a-zA-Z]/.test(letras[0]) ? 0 : 1;
+            letras[posLetra] = letras[posLetra].toUpperCase();
+            bloques[bloqueACapitalizar] = letras.join("");
 
-            if (indicesValidos.length > 0) {
-                const cantMayus = (getRandomInt(2) === 0) ? 1 : 2;
-                for (let k = 0; k < cantMayus; k++) {
-                    const pick = indicesValidos[getRandomInt(indicesValidos.length)];
-                    chars[pick] = chars[pick].toUpperCase();
-                }
-                cadena = chars.join("");
-            }
-
-            return cadena;
+            return bloques.join("-");
         }
 
         // Función para copiar y dar feedback visual
@@ -216,11 +208,12 @@
                 const candidata = generarContrasena666();
                 const score = (typeof zxcvbn === "function") ? zxcvbn(candidata).score : 4;
 
-                const tieneMayus = /[A-Z]/.test(candidata);
-                const tieneNum = /[0-9]/.test(candidata);
+                // Validación estricta: score 4, exactamente 1 número, exactamente 1 mayúscula
+                const totalMayus = (candidata.match(/[A-Z]/g) || []).length;
+                const totalNums = (candidata.match(/[0-9]/g) || []).length;
                 const noEmpiezaNiTerminaNum = !/^[0-9]|.*[0-9]$/.test(candidata);
 
-                if (score === 4 && tieneMayus && tieneNum && noEmpiezaNiTerminaNum) {
+                if (score === 4 && totalMayus === 1 && totalNums === 1 && noEmpiezaNiTerminaNum) {
                     const div = document.createElement("div");
                     div.className = "password";
                     div.textContent = candidata;

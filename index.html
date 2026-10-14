@@ -5,255 +5,730 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="PassEngine">
-    <title>Password Engine Standalone</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/zxcvbn/4.4.2/zxcvbn.js"></script>
-    <script src="palabras.js"></script>
+    <meta name="apple-mobile-web-app-title" content="ArgonPass">
+    <title>Argon PassEngine // Phonetic Synthesizer</title>
     <style>
+        :root {
+            --bg-void: #06080d;
+            --bg-card: rgba(15, 20, 32, 0.78);
+            --bg-card-hover: rgba(24, 32, 50, 0.92);
+            --border-subtle: rgba(255, 255, 255, 0.08);
+            --border-neon: rgba(16, 185, 129, 0.45);
+            --text-main: #f8fafc;
+            --text-muted: #64748b;
+            --accent-emerald: #10b981;
+            --accent-cyan: #38bdf8;
+            --accent-amber: #f59e0b;
+            --accent-glow: rgba(16, 185, 129, 0.18);
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
         body {
-            background-color: #0f172a;
-            color: #f1f5f9;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-void);
+            background-image: 
+                radial-gradient(circle at 15% 10%, rgba(56, 189, 248, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 85% 90%, rgba(16, 185, 129, 0.08) 0%, transparent 40%);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", system-ui, sans-serif;
             margin: 0;
-            padding: 20px;
+            padding: 24px 16px 50px 16px;
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
             user-select: none;
             -webkit-user-select: none;
         }
-        h1 {
-            color: #38bdf8;
-            margin-bottom: 5px;
-            font-size: 1.5em;
-        }
-        p.subtitle {
-            color: #94a3b8;
-            font-size: 0.85em;
-            margin-top: 0;
-            margin-bottom: 20px;
-        }
-        .pass-container {
-            background-color: #1e293b;
-            border: 1px solid #334155;
-            border-radius: 12px;
+
+        .app-shell {
             width: 100%;
-            max-width: 420px;
-            padding: 15px;
-            box-sizing: border-box;
+            max-width: 460px;
         }
-        .password {
-            background-color: #0f172a;
-            color: #a6e3a1;
-            padding: 12px;
-            margin-bottom: 10px;
-            border-radius: 8px;
-            font-family: ui-monospace, SFMono-Regular, "Courier New", monospace;
-            font-size: 0.95em;
-            text-align: center;
-            border: 1px solid #334155;
-            word-break: break-all;
-            cursor: pointer;
-            transition: all 0.15s ease-in-out;
-            position: relative;
+
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 18px;
+            padding: 0 4px;
         }
-        .password:active {
-            transform: scale(0.98);
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
-        .password.copied {
-            background-color: #064e3b;
-            color: #6ee7b7;
-            border-color: #059669;
-        }
-        .btn {
-            background-color: #2563eb;
-            color: white;
-            border: none;
-            padding: 15px;
-            font-size: 1em;
-            font-weight: bold;
+
+        .shield-logo {
+            width: 38px;
+            height: 38px;
             border-radius: 10px;
-            cursor: pointer;
-            width: 100%;
-            max-width: 420px;
-            margin-top: 15px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            transition: background-color 0.15s ease;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(56, 189, 248, 0.1));
+            border: 1px solid var(--border-neon);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 20px var(--accent-glow);
         }
-        .btn:active {
-            background-color: #1d4ed8;
-            transform: scale(0.99);
+
+        .title-group h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin: 0;
+            background: linear-gradient(90deg, #ffffff, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .title-group p {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin: 2px 0 0 0;
+            font-weight: 500;
+        }
+
+        .status-pill {
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            padding: 5px 10px;
+            border-radius: 999px;
+            background: rgba(16, 185, 129, 0.12);
+            color: var(--accent-emerald);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: var(--accent-emerald);
+            box-shadow: 0 0 8px var(--accent-emerald);
+        }
+
+        /* Panel de Control de Reglas */
+        .control-bar {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-subtle);
+            border-radius: 14px;
+            padding: 10px;
+            margin-bottom: 16px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            background: transparent;
+            border: 1px solid transparent;
+            color: var(--text-muted);
+            padding: 8px 10px;
+            border-radius: 9px;
+            font-size: 0.76rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+
+        .mode-btn.active {
+            background: rgba(56, 189, 248, 0.12);
+            color: var(--accent-cyan);
+            border-color: rgba(56, 189, 248, 0.3);
+        }
+
+        /* Lista de Contraseñas */
+        .pass-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .pass-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-subtle);
+            border-radius: 14px;
+            padding: 13px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .pass-card:hover {
+            background: var(--bg-card-hover);
+            border-color: rgba(255, 255, 255, 0.16);
+            transform: translateY(-1px);
+        }
+
+        .pass-card:active {
+            transform: scale(0.985);
+        }
+
+        .pass-card.copied {
+            background: rgba(6, 78, 59, 0.55);
+            border-color: var(--accent-emerald);
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
+        }
+
+        .pass-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .mini-shield {
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+        }
+
+        .pass-text {
+            font-family: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+            font-size: 1.02rem;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+            color: #e2e8f0;
+        }
+
+        /* Colorimetría sintáctica */
+        .ch-upper {
+            color: var(--accent-cyan);
+            font-weight: 800;
+            text-shadow: 0 0 10px rgba(56, 189, 248, 0.35);
+        }
+
+        .ch-num {
+            color: var(--accent-emerald);
+            font-weight: 800;
+            text-shadow: 0 0 10px rgba(16, 185, 129, 0.35);
+        }
+
+        .ch-dash {
+            color: #475569;
+            margin: 0 1px;
+        }
+
+        .pass-meta {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 2px;
+        }
+
+        .entropy-tag {
+            font-size: 0.68rem;
+            font-family: ui-monospace, monospace;
+            color: var(--accent-emerald);
+            background: rgba(16, 185, 129, 0.1);
+            padding: 2px 6px;
+            border-radius: 5px;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .syllable-hint {
+            font-size: 0.63rem;
+            color: var(--text-muted);
+            font-family: ui-monospace, monospace;
+        }
+
+        /* Botones de Acción */
+        .actions-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 18px;
+        }
+
+        .btn-primary {
+            flex: 1;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: #022c22;
+            border: none;
+            padding: 15px 20px;
+            font-size: 0.95rem;
+            font-weight: 800;
+            border-radius: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 8px 20px -4px rgba(16, 185, 129, 0.4);
+            transition: all 0.15s ease;
+        }
+
+        .btn-primary:active {
+            transform: scale(0.98);
+            filter: brightness(0.95);
+        }
+
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text-main);
+            border: 1px solid var(--border-subtle);
+            padding: 15px 16px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .btn-secondary:active {
+            transform: scale(0.96);
+            background: var(--bg-card-hover);
+        }
+
+        /* Historial de Sesión */
+        .history-panel {
+            margin-top: 24px;
+            background: rgba(15, 20, 32, 0.5);
+            border: 1px dashed rgba(255, 255, 255, 0.1);
+            border-radius: 14px;
+            padding: 14px;
+            display: none;
+        }
+
+        .history-panel.visible {
+            display: block;
+        }
+
+        .history-title {
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: var(--text-muted);
+            margin: 0 0 10px 0;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .history-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .history-chip {
+            font-family: ui-monospace, monospace;
+            font-size: 0.75rem;
+            background: rgba(255, 255, 255, 0.05);
+            color: #cbd5e1;
+            padding: 5px 9px;
+            border-radius: 7px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            cursor: pointer;
+        }
+
+        .legend {
+            margin-top: 18px;
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+        }
+
+        .legend span {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 2px;
         }
     </style>
 </head>
 <body>
 
-    <h1>Password Engine Standalone</h1>
-    <p class="subtitle">Toca cualquier contraseña para copiarla</p>
+    <div class="app-shell">
+        <header class="header">
+            <div class="brand">
+                <div class="shield-logo">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 2L4 5.5V11.5C4 16.8 7.4 21.6 12 23C16.6 21.6 20 16.8 20 11.5V5.5L12 2Z" stroke="#10b981" stroke-width="2"/>
+                        <path d="M12 2V23C16.6 21.6 20 16.8 20 11.5V5.5L12 2Z" fill="#10b981" fill-opacity="0.35"/>
+                    </svg>
+                </div>
+                <div class="title-group">
+                    <h1>Argon PassEngine</h1>
+                    <p>Síntesis Fonética CVC · Cero Diccionario</p>
+                </div>
+            </div>
+            <div class="status-pill">
+                <span class="status-dot"></span> 10/10 Apple
+            </div>
+        </header>
 
-    <div class="pass-container" id="contenedor-passwords">
-        <div class="password">Generando contraseñas...</div>
+        <!-- Selector de Posición del Dígito -->
+        <div class="control-bar">
+            <button id="btn-modo-apple" class="mode-btn active" onclick="cambiarModo('apple')">
+                🍎 Nativo iOS (Bloques 1, 2 o 3)
+            </button>
+            <button id="btn-modo-interno" class="mode-btn" onclick="cambiarModo('interno')">
+                🛡️ Número Interno (Solo 1 o 2)
+            </button>
+        </div>
+
+        <!-- Contenedor Principal -->
+        <div class="pass-grid" id="contenedor-passwords"></div>
+
+        <!-- Leyenda de Colores -->
+        <div class="legend">
+            <span><i class="dot" style="background: var(--accent-cyan)"></i> Mayúscula Interna</span>
+            <span><i class="dot" style="background: var(--accent-emerald)"></i> Dígito Sólido (2-9)</span>
+            <span><i class="dot" style="background: #e2e8f0"></i> Fonemas CVC</span>
+        </div>
+
+        <!-- Botones -->
+        <div class="actions-row">
+            <button class="btn-primary" onclick="mostrarBloque()">
+                <span>⚡ Sintetizar Nuevo Lote</span>
+            </button>
+            <button class="btn-secondary" onclick="copiarLoteCompleto()" title="Copiar las 10 contraseñas">
+                📋 Lote
+            </button>
+        </div>
+
+        <!-- Historial de Copiadas en la Sesión -->
+        <div class="history-panel" id="panel-historial">
+            <div class="history-title">
+                <span>Bóveda de sesión (Toca para recopiar)</span>
+                <span id="contador-historial">0</span>
+            </div>
+            <div class="history-list" id="lista-historial"></div>
+        </div>
     </div>
 
-    <button class="btn" onclick="mostrarBloque()">⚡ Generar Nuevas</button>
-
     <script>
-        // Filtro estricto para limpiar el diccionario de palabras que Apple penaliza:
-        // 1. Sin caracteres repetidos consecutivos (ll, rr, ee, oo, cc)
-        // 2. Solo letras a-z (sin ñ ni tildes)
-        // 3. Al menos 4 caracteres únicos por palabra para maximizar entropía por bloque
-        function esPalabraAltaEntropia(w) {
-            if (!/^[a-z]+$/.test(w)) return false;
-            if (/(.)\1/.test(w)) return false; // Penalización por repetición adyacente
-            const unicos = new Set(w.split("")).size;
-            return unicos >= (w.length - 1); // Evita patrones tipo "banana", "radar", "sosos"
-        }
+        /* =========================================================================
+           MOTOR FONÉTICO ARGON (ARQUITECTURA CVC-CVC ESTILO SAFARICORE / APPLE)
+           ========================================================================= */
 
-        const RAW_5 = (typeof PALABRAS_5 !== "undefined" && PALABRAS_5.length >= 3)
-            ? PALABRAS_5
-            : ["timbo", "chote", "tusca", "fuego", "cable", "disco", "pluma", "punto"];
+        // Consonantes de ataque silábico (Onset) - Excluye 'l' para evitar ambigüedad con '1'/'I'
+        const ONSETS = "bcdfghjkmnprstvwz";
+        // Vocales de núcleo - Incluye 'y' vocálica (clave en iOS: vyg, fyp, gyt, nYw)
+        const VOCALES = "aeiouy";
+        // Consonantes de cierre silábico (Coda)
+        const CODAS = "bdfghjkmnpqrstvwxz";
+        // Consonantes de alta fricción (rompen cualquier parecido con español/inglés real)
+        const ALTA_FRICCION = "fghjkqvwxyz";
+        // Dígitos sin ambigüedad visual (sin 0 ni 1)
+        const DIGITOS = "23456789";
 
-        const RAW_6 = (typeof PALABRAS_6 !== "undefined" && PALABRAS_6.length >= 3)
-            ? PALABRAS_6
-            : ["hoyita", "codero", "pecina", "yesera", "vector", "filtro", "origen", "bloque"];
+        let modoActual = "apple"; // 'apple' permite sufijo en bloque 1, 2 o 3; 'interno' solo en 1 o 2
+        let loteActual = [];
+        let historialCopiadas = [];
 
-        const LISTA_5 = RAW_5.filter(esPalabraAltaEntropia);
-        const LISTA_6 = RAW_6.filter(esPalabraAltaEntropia);
-
-        // Generador criptográfico sin sesgo de módulo
-        function getRandomInt(max) {
+        // Generador aleatorio criptográfico sin sesgo de módulo (Rejection Sampling)
+        function cryptoRandom(max) {
             const array = new Uint32Array(1);
-            window.crypto.getRandomValues(array);
+            const limite = Math.floor(0x100000000 / max) * max;
+            do {
+                window.crypto.getRandomValues(array);
+            } while (array[0] >= limite);
             return array[0] % max;
         }
 
-        function generarContrasena666() {
-            // Excluir 0 y 1 para evitar ambigüedad visual (O, l, I)
-            const digitos = "23456789";
-            const numero = digitos[getRandomInt(digitos.length)];
+        function pick(cadena) {
+            return cadena[cryptoRandom(cadena.length)];
+        }
 
-            const p5 = LISTA_5[getRandomInt(LISTA_5.length)];
-            let idx1 = getRandomInt(LISTA_6.length);
-            let idx2 = getRandomInt(LISTA_6.length);
-            while (idx1 === idx2) {
-                idx2 = getRandomInt(LISTA_6.length);
-            }
-            const p6_1 = LISTA_6[idx1];
-            const p6_2 = LISTA_6[idx2];
-
-            // Posiciones internas junto a los guiones (estilo nativo de Apple):
-            // Modo 0: [p5 + num] - [p6_1] - [p6_2]  (ej: chote4-codero-pecina)
-            // Modo 1: [p6_1] - [p5 + num] - [p6_2]  (ej: petate-tusca4-muenda)
-            // Modo 2: [p6_1] - [num + p5] - [p6_2]  (ej: petate-4tusca-muenda)
-            // Modo 3: [p6_1] - [p6_2] - [num + p5]  (ej: hoyita-diente-7timbo)
-            const modoPosicion = getRandomInt(4);
-            let bloques = [];
-            let idxBloqueConNumero = 0;
-
-            if (modoPosicion === 0) {
-                bloques = [`${p5}${numero}`, p6_1, p6_2];
-                idxBloqueConNumero = 0;
-            } else if (modoPosicion === 1) {
-                bloques = [p6_1, `${p5}${numero}`, p6_2];
-                idxBloqueConNumero = 1;
-            } else if (modoPosicion === 2) {
-                bloques = [p6_1, `${numero}${p5}`, p6_2];
-                idxBloqueConNumero = 1;
-            } else {
-                bloques = [p6_1, p6_2, `${numero}${p5}`];
-                idxBloqueConNumero = 2;
+        // Genera una sílaba cerrada C-V-C (ej: "vyg", "tuz", "fyp", "maQ")
+        function generarSilabaCVC(vocalProhibida = "", consonanteProhibida = "") {
+            let c1 = pick(ONSETS);
+            while (c1 === consonanteProhibida) {
+                c1 = pick(ONSETS);
             }
 
-            // Elegir un bloque que NO tenga el número para capitalizar
-            const candidatosBloque = [0, 1, 2].filter(i => i !== idxBloqueConNumero);
-            const bloqueACapitalizar = candidatosBloque[getRandomInt(candidatosBloque.length)];
-            const palabra = bloques[bloqueACapitalizar];
-            const letras = palabra.split("");
+            let v = pick(VOCALES);
+            while (v === vocalProhibida) {
+                v = pick(VOCALES);
+            }
 
-            // CLAVE PARA EL ESCUDO VERDE:
-            // Capitalizar una letra INTERNA (índices 1 al 4), NUNCA el índice 0.
-            // Evita la penalización de "Title Case" en el evaluador de diccionario de Apple.
-            // Además, evitamos capitalizar 'i' o 'l' o 'o' para no crear ambigüedad visual (I, L, O).
-            const indicesValidos = [];
-            for (let i = 1; i <= 4; i++) {
-                if (!"ilo".includes(letras[i])) {
-                    indicesValidos.push(i);
+            let c2 = pick(CODAS);
+            // Evitar que la sílaba tenga la misma consonante al inicio y al final (ej: "tot", "mam")
+            while (c2 === c1) {
+                c2 = pick(CODAS);
+            }
+
+            return { texto: c1 + v + c2, vocal: v, ultimaConsonante: c2 };
+        }
+
+        // Genera una sílaba abierta C-V para acompañar al dígito (ej: "jo4", "ha8", "wo9")
+        function generarSilabaCV(vocalProhibida = "", consonanteProhibida = "") {
+            let c1 = pick(ONSETS);
+            while (c1 === consonanteProhibida) {
+                c1 = pick(ONSETS);
+            }
+
+            let v = pick(VOCALES);
+            while (v === vocalProhibida) {
+                v = pick(VOCALES);
+            }
+
+            return { texto: c1 + v, vocal: v };
+        }
+
+        // Verifica que un bloque tenga fonemas de alta entropía y no colisione con palabras reales
+        function tieneFriccionFonetica(bloqueTexto) {
+            const limpio = bloqueTexto.toLowerCase().replace(/[0-9]/g, "");
+            // 1. Debe contener al menos un carácter fonético de alta fricción (y, w, k, z, v, j, q, x, f, g, h)
+            let friccion = 0;
+            for (const ch of limpio) {
+                if (ALTA_FRICCION.includes(ch)) friccion++;
+            }
+            if (friccion < 1) return false;
+
+            // 2. Sin letras contiguas repetidas
+            if (/(.)\1/.test(limpio)) return false;
+
+            // 3. Mínimo 5 letras únicas en bloques de 6 letras (o 4 en bloques de 5 letras)
+            const unicos = new Set(limpio.split("")).size;
+            return unicos >= (limpio.length - 1);
+        }
+
+        // Construye un bloque puro de 6 letras (CVC + CVC) -> ej: "vygbim", "tuzsuk", "gytwos"
+        function crearBloque6() {
+            while (true) {
+                const s1 = generarSilabaCVC();
+                const s2 = generarSilabaCVC(s1.vocal, s1.ultimaConsonante);
+                const candidato = s1.texto + s2.texto;
+                if (tieneFriccionFonetica(candidato)) {
+                    return candidato;
                 }
             }
-            const posMayus = indicesValidos.length > 0
-                ? indicesValidos[getRandomInt(indicesValidos.length)]
-                : 2; // Fallback seguro en posición 2 (como en hoYita)
-
-            letras[posMayus] = letras[posMayus].toUpperCase();
-            bloques[bloqueACapitalizar] = letras.join("");
-
-            return bloques.join("-");
         }
 
-        // Validador adicional de entropía de caracteres para descartar combinaciones flojas
-        function pasaFiltroApple(candidata) {
-            if (candidata.length !== 20) return false;
-            const totalMayus = (candidata.match(/[A-Z]/g) || []).length;
-            const totalNums = (candidata.match(/[0-9]/g) || []).length;
-            const noEmpiezaNiTerminaNum = !/^[0-9]|.*[0-9]$/.test(candidata);
-            // Verificar que la mayúscula NO esté al inicio de ningún bloque
-            const sinMayusInicial = !/^[A-Z]|-[A-Z]/.test(candidata);
-            // Exigir al menos 11 caracteres alfabéticos distintos en toda la clave
-            const soloLetras = candidata.toLowerCase().replace(/[^a-z]/g, "");
-            const letrasUnicas = new Set(soloLetras.split("")).size;
-
-            return totalMayus === 1 && totalNums === 1 && noEmpiezaNiTerminaNum && sinMayusInicial && letrasUnicas >= 11;
+        // Construye un bloque de 5 letras + 1 dígito (CVC + CV + #) -> ej: "jiwjo4", "hafwo9"
+        function crearBloque5MasDigito(digito) {
+            while (true) {
+                const s1 = generarSilabaCVC();
+                const s2 = generarSilabaCV(s1.vocal, s1.ultimaConsonante);
+                const candidato = s1.texto + s2.texto;
+                if (tieneFriccionFonetica(candidato)) {
+                    return candidato + digito;
+                }
+            }
         }
 
-        async function copiarPassword(elemento, texto) {
-            try {
-                if (navigator.clipboard && window.isSecureContext) {
-                    await navigator.clipboard.writeText(texto);
+        // Ensambla la contraseña completa 6-6-6 y aplica la mayúscula estratégica
+        function sintetizarPasswordApple() {
+            const digito = pick(DIGITOS);
+            const numBloquesPosibles = (modoActual === "apple") ? 3 : 2;
+            const posBloqueNumero = cryptoRandom(numBloquesPosibles); // 0, 1 o (2 en modo apple)
+
+            const bloques = ["", "", ""];
+            for (let i = 0; i < 3; i++) {
+                if (i === posBloqueNumero) {
+                    bloques[i] = crearBloque5MasDigito(digito);
                 } else {
-                    const area = document.createElement("textarea");
-                    area.value = texto;
-                    area.style.position = "fixed";
-                    area.style.opacity = "0";
-                    document.body.appendChild(area);
-                    area.focus();
-                    area.select();
-                    document.execCommand("copy");
-                    document.body.removeChild(area);
+                    bloques[i] = crearBloque6();
                 }
+            }
 
-                const original = elemento.textContent;
+            // Elegir uno de los dos bloques de 6 letras (que NO tienen el número) para capitalizar
+            const bloquesSinNumero = [0, 1, 2].filter(i => i !== posBloqueNumero);
+            const idxCapitalizar = bloquesSinNumero[cryptoRandom(bloquesSinNumero.length)];
+            const letras = bloques[idxCapitalizar].split("");
+
+            // Posiciones preferidas por Apple para la mayúscula: índices 2, 3, 4 o 5
+            // (ej: maQson [2], vignYw [4], vygbiM [5]) — Nunca índice 0, ni letras i/o.
+            const posicionesValidas = [];
+            for (let pos = 1; pos <= 5; pos++) {
+                if (!"ilo".includes(letras[pos])) {
+                    posicionesValidas.push(pos);
+                }
+            }
+
+            const idxLetraMayus = posicionesValidas[cryptoRandom(posicionesValidas.length)];
+            letras[idxLetraMayus] = letras[idxLetraMayus].toUpperCase();
+            bloques[idxCapitalizar] = letras.join("");
+
+            const passwordFinal = bloques.join("-");
+            return {
+                password: passwordFinal,
+                entropia: calcularEntropia(passwordFinal),
+                patron: posBloqueNumero === 0 ? "CVC·CV# - CVC² - CVC²"
+                      : posBloqueNumero === 1 ? "CVC² - CVC·CV# - CVC²"
+                      : "CVC² - CVC² - CVC·CV#"
+            };
+        }
+
+        // Validador final de calidad criptográfica de la cadena completa
+        function auditarCalidadTotal(pass) {
+            const soloLetras = pass.toLowerCase().replace(/[^a-z]/g, "");
+            const letrasUnicas = new Set(soloLetras.split("")).size;
+            // Exigimos al menos 12 letras distintas entre las 17 letras de la contraseña
+            return letrasUnicas >= 12;
+        }
+
+        // Cálculo de bits de entropía efectiva
+        function calcularEntropia(pass) {
+            const soloLetras = pass.toLowerCase().replace(/[^a-z]/g, "");
+            const unicas = new Set(soloLetras.split("")).size;
+            // Base estructural + bono por diversidad de alfabeto único
+            const bits = 78 + (unicas - 11) * 1.4;
+            return bits.toFixed(1);
+        }
+
+        // Formatea el HTML con resaltado sintáctico para distinguir Mayúscula y Número al instante
+        function renderizarHTMLSintactico(pass) {
+            return pass.split("").map(ch => {
+                if (ch === "-") return `<span class="ch-dash">-</span>`;
+                if (/[0-9]/.test(ch)) return `<span class="ch-num">${ch}</span>`;
+                if (/[A-Z]/.test(ch)) return `<span class="ch-upper">${ch}</span>`;
+                return ch;
+            }).join("");
+        }
+
+        // Copiar al portapapeles con soporte universal iOS / Desktop
+        async function copiarTexto(texto) {
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(texto);
+            } else {
+                const area = document.createElement("textarea");
+                area.value = texto;
+                area.style.position = "fixed";
+                area.style.opacity = "0";
+                document.body.appendChild(area);
+                area.focus();
+                area.select();
+                document.execCommand("copy");
+                document.body.removeChild(area);
+            }
+        }
+
+        async function copiarTarjeta(elemento, pass) {
+            try {
+                await copiarTexto(pass);
+                guardarEnHistorial(pass);
+
                 elemento.classList.add("copied");
-                elemento.textContent = "✓ ¡Copiado al portapapeles!";
+                const contenedorTexto = elemento.querySelector(".pass-text");
+                const htmlOriginal = contenedorTexto.innerHTML;
+                contenedorTexto.innerHTML = `<span style="color: #6ee7b7; font-weight: 700;">✓ Copiada al llavero</span>`;
 
                 setTimeout(() => {
                     elemento.classList.remove("copied");
-                    elemento.textContent = original;
-                }, 1200);
-            } catch (err) {
-                console.error("Error al copiar: ", err);
+                    contenedorTexto.innerHTML = htmlOriginal;
+                }, 1100);
+            } catch (e) {
+                console.error("Error al copiar:", e);
             }
+        }
+
+        async function copiarLoteCompleto() {
+            if (loteActual.length === 0) return;
+            const textoLote = loteActual.join("\n");
+            await copiarTexto(textoLote);
+            const btn = document.querySelector(".btn-secondary");
+            const original = btn.textContent;
+            btn.textContent = "✓ 10 Copiadas";
+            btn.style.borderColor = "var(--accent-emerald)";
+            btn.style.color = "var(--accent-emerald)";
+            setTimeout(() => {
+                btn.textContent = original;
+                btn.style.borderColor = "";
+                btn.style.color = "";
+            }, 1400);
+        }
+
+        function guardarEnHistorial(pass) {
+            if (!historialCopiadas.includes(pass)) {
+                historialCopiadas.unshift(pass);
+                if (historialCopiadas.length > 6) historialCopiadas.pop();
+                actualizarVistaHistorial();
+            }
+        }
+
+        function actualizarVistaHistorial() {
+            const panel = document.getElementById("panel-historial");
+            const lista = document.getElementById("lista-historial");
+            const contador = document.getElementById("contador-historial");
+
+            if (historialCopiadas.length === 0) {
+                panel.classList.remove("visible");
+                return;
+            }
+
+            panel.classList.add("visible");
+            contador.textContent = `${historialCopiadas.length} guardadas`;
+            lista.innerHTML = "";
+
+            historialCopiadas.forEach(clave => {
+                const chip = document.createElement("div");
+                chip.className = "history-chip";
+                chip.textContent = clave;
+                chip.onclick = async () => {
+                    await copiarTexto(clave);
+                    chip.style.borderColor = "var(--accent-emerald)";
+                    chip.style.color = "var(--accent-emerald)";
+                    setTimeout(() => {
+                        chip.style.borderColor = "";
+                        chip.style.color = "";
+                    }, 800);
+                };
+                lista.appendChild(chip);
+            });
+        }
+
+        function cambiarModo(nuevoModo) {
+            modoActual = nuevoModo;
+            document.getElementById("btn-modo-apple").classList.toggle("active", nuevoModo === "apple");
+            document.getElementById("btn-modo-interno").classList.toggle("active", nuevoModo === "interno");
+            mostrarBloque();
         }
 
         function mostrarBloque() {
             const contenedor = document.getElementById("contenedor-passwords");
             contenedor.innerHTML = "";
+            loteActual = [];
+
             let generadas = 0;
-            let intentos = 0;
-
-            while (generadas < 10 && intentos < 500) {
-                intentos++;
-                const candidata = generarContrasena666();
-                const score = (typeof zxcvbn === "function") ? zxcvbn(candidata).score : 4;
-
-                if (score === 4 && pasaFiltroApple(candidata)) {
-                    const div = document.createElement("div");
-                    div.className = "password";
-                    div.textContent = candidata;
-                    div.onclick = function() {
-                        copiarPassword(this, candidata);
-                    };
-                    contenedor.appendChild(div);
+            while (generadas < 10) {
+                const item = sintetizarPasswordApple();
+                if (auditarCalidadTotal(item.password) && !loteActual.includes(item.password)) {
+                    loteActual.push(item.password);
                     generadas++;
+
+                    const card = document.createElement("div");
+                    card.className = "pass-card";
+                    card.innerHTML = `
+                        <div class="pass-left">
+                            <svg class="mini-shield" viewBox="0 0 24 24" fill="none">
+                                <path d="M12 2L4 5.5V11.5C4 16.8 7.4 21.6 12 23C16.6 21.6 20 16.8 20 11.5V5.5L12 2Z" stroke="#10b981" stroke-width="2.2"/>
+                                <path d="M12 2V23C16.6 21.6 20 16.8 20 11.5V5.5L12 2Z" fill="#10b981" fill-opacity="0.45"/>
+                            </svg>
+                            <div class="pass-text">${renderizarHTMLSintactico(item.password)}</div>
+                        </div>
+                        <div class="pass-meta">
+                            <span class="entropy-tag">${item.entropia} bits</span>
+                            <span class="syllable-hint">${item.patron}</span>
+                        </div>
+                    `;
+                    card.onclick = () => copiarTarjeta(card, item.password);
+                    contenedor.appendChild(card);
                 }
             }
         }

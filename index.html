@@ -7,9 +7,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="PassEngine">
     <title>Password Engine Standalone</title>
-    <!-- Evaluador de seguridad zxcvbn para el navegador -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/zxcvbn/4.4.2/zxcvbn.js"></script>
-    <!-- Carga del diccionario completo generado por Python -->
     <script src="palabras.js"></script>
     <style>
         body {
@@ -100,14 +98,29 @@
     <button class="btn" onclick="mostrarBloque()">⚡ Generar Nuevas</button>
 
     <script>
-        const LISTA_5 = (typeof PALABRAS_5 !== "undefined" && PALABRAS_5.length >= 3) 
-            ? PALABRAS_5 
-            : ["noche", "mundo", "fuego", "cable", "disco", "llave", "pluma", "punto"];
+        // Filtro estricto para limpiar el diccionario de palabras que Apple penaliza:
+        // 1. Sin caracteres repetidos consecutivos (ll, rr, ee, oo, cc)
+        // 2. Solo letras a-z (sin ñ ni tildes)
+        // 3. Al menos 4 caracteres únicos por palabra para maximizar entropía por bloque
+        function esPalabraAltaEntropia(w) {
+            if (!/^[a-z]+$/.test(w)) return false;
+            if (/(.)\1/.test(w)) return false; // Penalización por repetición adyacente
+            const unicos = new Set(w.split("")).size;
+            return unicos >= (w.length - 1); // Evita patrones tipo "banana", "radar", "sosos"
+        }
 
-        const LISTA_6 = (typeof PALABRAS_6 !== "undefined" && PALABRAS_6.length >= 3) 
-            ? PALABRAS_6 
-            : ["espejo", "puente", "trueno", "camino", "origen", "filtro", "vector", "bloque"];
+        const RAW_5 = (typeof PALABRAS_5 !== "undefined" && PALABRAS_5.length >= 3)
+            ? PALABRAS_5
+            : ["timbo", "chote", "tusca", "fuego", "cable", "disco", "pluma", "punto"];
 
+        const RAW_6 = (typeof PALABRAS_6 !== "undefined" && PALABRAS_6.length >= 3)
+            ? PALABRAS_6
+            : ["hoyita", "codero", "pecina", "yesera", "vector", "filtro", "origen", "bloque"];
+
+        const LISTA_5 = RAW_5.filter(esPalabraAltaEntropia);
+        const LISTA_6 = RAW_6.filter(esPalabraAltaEntropia);
+
+        // Generador criptográfico sin sesgo de módulo
         function getRandomInt(max) {
             const array = new Uint32Array(1);
             window.crypto.getRandomValues(array);
@@ -115,7 +128,7 @@
         }
 
         function generarContrasena666() {
-            // Excluir 0 y 1 para evitar penalización por ambigüedad visual (O, l, I)
+            // Excluir 0 y 1 para evitar ambigüedad visual (O, l, I)
             const digitos = "23456789";
             const numero = digitos[getRandomInt(digitos.length)];
 
@@ -128,33 +141,68 @@
             const p6_1 = LISTA_6[idx1];
             const p6_2 = LISTA_6[idx2];
 
-            // Siempre número como sufijo en posición 6 del bloque (ej: "chote4", "goofy8")
-            const pConNum = `${p5}${numero}`;
-
-            // Solo permitir el bloque con número en la posición 1 o 2 (el bloque 3 queda limpio)
-            const bloqueNum = getRandomInt(2) + 1; // Devuelve 1 o 2
-
+            // Posiciones internas junto a los guiones (estilo nativo de Apple):
+            // Modo 0: [p5 + num] - [p6_1] - [p6_2]  (ej: chote4-codero-pecina)
+            // Modo 1: [p6_1] - [p5 + num] - [p6_2]  (ej: petate-tusca4-muenda)
+            // Modo 2: [p6_1] - [num + p5] - [p6_2]  (ej: petate-4tusca-muenda)
+            // Modo 3: [p6_1] - [p6_2] - [num + p5]  (ej: hoyita-diente-7timbo)
+            const modoPosicion = getRandomInt(4);
             let bloques = [];
-            if (bloqueNum === 1) {
-                bloques = [pConNum, p6_1, p6_2];
+            let idxBloqueConNumero = 0;
+
+            if (modoPosicion === 0) {
+                bloques = [`${p5}${numero}`, p6_1, p6_2];
+                idxBloqueConNumero = 0;
+            } else if (modoPosicion === 1) {
+                bloques = [p6_1, `${p5}${numero}`, p6_2];
+                idxBloqueConNumero = 1;
+            } else if (modoPosicion === 2) {
+                bloques = [p6_1, `${numero}${p5}`, p6_2];
+                idxBloqueConNumero = 1;
             } else {
-                bloques = [p6_1, pConNum, p6_2];
+                bloques = [p6_1, p6_2, `${numero}${p5}`];
+                idxBloqueConNumero = 2;
             }
 
-            // Capitalizar exactamente 1 letra en uno de los bloques que NO tiene el número
-            const candidatosBloque = [];
-            if (bloqueNum !== 1) candidatosBloque.push(0);
-            if (bloqueNum !== 2) candidatosBloque.push(1);
-            candidatosBloque.push(2); // El bloque 3 nunca tiene número
-
+            // Elegir un bloque que NO tenga el número para capitalizar
+            const candidatosBloque = [0, 1, 2].filter(i => i !== idxBloqueConNumero);
             const bloqueACapitalizar = candidatosBloque[getRandomInt(candidatosBloque.length)];
             const palabra = bloques[bloqueACapitalizar];
             const letras = palabra.split("");
 
-            letras[0] = letras[0].toUpperCase();
+            // CLAVE PARA EL ESCUDO VERDE:
+            // Capitalizar una letra INTERNA (índices 1 al 4), NUNCA el índice 0.
+            // Evita la penalización de "Title Case" en el evaluador de diccionario de Apple.
+            // Además, evitamos capitalizar 'i' o 'l' o 'o' para no crear ambigüedad visual (I, L, O).
+            const indicesValidos = [];
+            for (let i = 1; i <= 4; i++) {
+                if (!"ilo".includes(letras[i])) {
+                    indicesValidos.push(i);
+                }
+            }
+            const posMayus = indicesValidos.length > 0
+                ? indicesValidos[getRandomInt(indicesValidos.length)]
+                : 2; // Fallback seguro en posición 2 (como en hoYita)
+
+            letras[posMayus] = letras[posMayus].toUpperCase();
             bloques[bloqueACapitalizar] = letras.join("");
 
             return bloques.join("-");
+        }
+
+        // Validador adicional de entropía de caracteres para descartar combinaciones flojas
+        function pasaFiltroApple(candidata) {
+            if (candidata.length !== 20) return false;
+            const totalMayus = (candidata.match(/[A-Z]/g) || []).length;
+            const totalNums = (candidata.match(/[0-9]/g) || []).length;
+            const noEmpiezaNiTerminaNum = !/^[0-9]|.*[0-9]$/.test(candidata);
+            // Verificar que la mayúscula NO esté al inicio de ningún bloque
+            const sinMayusInicial = !/^[A-Z]|-[A-Z]/.test(candidata);
+            // Exigir al menos 11 caracteres alfabéticos distintos en toda la clave
+            const soloLetras = candidata.toLowerCase().replace(/[^a-z]/g, "");
+            const letrasUnicas = new Set(soloLetras.split("")).size;
+
+            return totalMayus === 1 && totalNums === 1 && noEmpiezaNiTerminaNum && sinMayusInicial && letrasUnicas >= 11;
         }
 
         async function copiarPassword(elemento, texto) {
@@ -192,16 +240,12 @@
             let generadas = 0;
             let intentos = 0;
 
-            while (generadas < 10 && intentos < 300) {
+            while (generadas < 10 && intentos < 500) {
                 intentos++;
                 const candidata = generarContrasena666();
                 const score = (typeof zxcvbn === "function") ? zxcvbn(candidata).score : 4;
 
-                const totalMayus = (candidata.match(/[A-Z]/g) || []).length;
-                const totalNums = (candidata.match(/[0-9]/g) || []).length;
-                const noEmpiezaNiTerminaNum = !/^[0-9]|.*[0-9]$/.test(candidata);
-
-                if (score === 4 && totalMayus === 1 && totalNums === 1 && noEmpiezaNiTerminaNum) {
+                if (score === 4 && pasaFiltroApple(candidata)) {
                     const div = document.createElement("div");
                     div.className = "password";
                     div.textContent = candidata;
